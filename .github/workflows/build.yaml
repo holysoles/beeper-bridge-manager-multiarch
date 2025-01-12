@@ -52,8 +52,8 @@ jobs:
         id: validate-digest
         run: |
           NEEDS_BUILD="false"
-          echo "checking against last processed release (${LAST_RELEASE_DIGEST})"
-          if [[ "${{steps.fetch-current.outputs.digest}}" != "$LAST_RELEASE_DIGEST" ]]; then
+          echo "checking against last processed release (${{ vars.LAST_RELEASE_DIGEST }})"
+          if [[ "${{steps.fetch-current.outputs.digest}}" != "${{ vars.LAST_RELEASE_DIGEST }}" ]]; then
             echo "The SHA digest does not match the cached value! A build will commence."
             NEEDS_BUILD="true"
           else
