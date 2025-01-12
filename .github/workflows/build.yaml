@@ -1,0 +1,132 @@
+name: Monitor and Build New Releases
+
+# env from bridge-manager workflow
+env:
+  GO_VERSION: "1.22"
+  GHCR_REGISTRY: ghcr.io
+  GHCR_REGISTRY_IMAGE: "ghcr.io/${{ github.repository }}"
+
+on:
+  workflow_dispatch: # Allow manual triggers
+  schedule:
+    - cron: "15 0,6,12,18 * * *" # every 6 hours at XX:15
+
+jobs:
+  check-digest:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      run_build: ${{ steps.validate-digest.outputs.run_build }}
+      new_digest: ${{ steps.fetch-current.outputs.digest }}
+    steps:
+      - name: Setup
+        uses: actions/checkout@v3
+
+      - name: Fetch Current latest Tag's Digest
+        id: fetch-current
+        run: |          
+          LATEST_RELEASE=$(gh api \
+            --method GET \
+            "/orgs/beeper/packages/container/bridge-manager/versions" \
+            -H "Accept: application/vnd.github+json" \
+            | jq -r '.[] | select (.metadata.container.tags | index("latest"))'
+          )
+          DIGEST=$(echo $LATEST_RELEASE | jq -r ' .name')
+          CREATED_AT=$(echo $LATEST_RELEASE | jq -r ' .created_at')
+          UPDATED_AT=$(echo $LATEST_RELEASE | jq -r ' .updated_at')
+
+          if [ -z "${DIGEST}" ]; then
+            echo "no detected output from gh cli!"
+            exit 1
+          fi
+
+          echo "Package digest: ${DIGEST}"
+          echo "Package created at: ${CREATED_AT}"
+          echo "Package updated at: ${UPDATED_AT}"
+          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate Digest
+        id: validate-digest
+        run: |
+          NEEDS_BUILD="false"
+          echo "checking against last processed release (${LAST_RELEASE_DIGEST})"
+          if [[ "${{steps.fetch-current.outputs.digest}}" != "$LAST_RELEASE_DIGEST" ]]; then
+            echo "The SHA digest does not match the cached value! A build will commence."
+            NEEDS_BUILD="true"
+          else
+            echo "The SHA digest matches the cached value. This image has already been processed."
+          fi
+          echo "needs_build=$NEEDS_BUILD" >> "$GITHUB_OUTPUT"
+
+
+# Following stage is based on bridge-manager's workflow, @silkie's fork in particular
+
+  build-docker:
+    runs-on: ubuntu-latest
+    needs: check-digest
+    if: ${{ needs.check-digest.outputs.needs_build }} == "true"
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: beeper/bridge-manager
+          ref: main
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=long,prefix=
+
+      - name: Docker Build
+        uses: docker/build-push-action@v5
+        with:
+          cache-from: ${{ env.GHCR_REGISTRY_IMAGE }}:latest
+          pull: true
+          platforms: linux/amd64,linux/arm64
+          context: .
+          file: docker/Dockerfile
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          push: true
+          build-args: |
+            COMMIT_HASH=${{ github.sha }}
+
+  update-digest:
+    runs-on: ubuntu-24.04
+    needs:
+      - build-docker
+      - check-digest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Setup
+        uses: actions/checkout@v3
+      - name: Update Repo Variable
+        run: |
+          gh api \
+          --method PATCH \
+          "/repos/${GITHUB_REPOSITORY}/actions/variables/LAST_RELEASE_DIGEST" \
+          -H "Accept: application/vnd.github+json" \
+          -f "name=LAST_RELEASE_DIGEST" -f "value=${{ needs.check-digest.outputs.new_digest }}"
+        env:
+          GH_TOKEN: ${{ secrets.VARIABLE_WRITE_KEY }}
