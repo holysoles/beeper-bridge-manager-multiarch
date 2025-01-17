@@ -25,11 +25,12 @@ jobs:
 
       - name: Fetch Current latest Tag's Digest
         id: fetch-current
-        run: |          
+        run: |
           LATEST_RELEASE=$(gh api \
             --method GET \
             "/orgs/beeper/packages/container/bridge-manager/versions" \
             -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
             | jq -r '.[] | select (.metadata.container.tags | index("latest"))'
           )
           DIGEST=$(echo $LATEST_RELEASE | jq -r ' .name')
@@ -127,6 +128,7 @@ jobs:
           --method PATCH \
           "/repos/${GITHUB_REPOSITORY}/actions/variables/LAST_RELEASE_DIGEST" \
           -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
           -f "name=LAST_RELEASE_DIGEST" -f "value=${{ needs.check-digest.outputs.new_digest }}"
         env:
           GH_TOKEN: ${{ secrets.VARIABLE_WRITE_KEY }}
