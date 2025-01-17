@@ -132,3 +132,11 @@ jobs:
           -f "name=LAST_RELEASE_DIGEST" -f "value=${{ needs.check-digest.outputs.new_digest }}"
         env:
           GH_TOKEN: ${{ secrets.VARIABLE_WRITE_KEY }}
+
+  workflow-keepalive:
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'schedule'
+    permissions:
+      actions: write
+    steps:
+      - uses: liskin/gh-workflow-keepalive@f72ff1a1336129f29bf0166c0fd0ca6cf1bcb38c # v1.2.1
