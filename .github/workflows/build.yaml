@@ -97,7 +97,7 @@ jobs:
             type=sha,format=long,prefix=
 
       - name: Docker Build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v5
         with:
           cache-from: ${{ env.GHCR_REGISTRY_IMAGE }}:latest
           pull: true
