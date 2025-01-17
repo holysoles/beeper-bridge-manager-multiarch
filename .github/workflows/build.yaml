@@ -21,7 +21,7 @@ jobs:
       run_build: ${{ steps.validate-digest.outputs.needs_build }}
     steps:
       - name: Setup
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Fetch Current latest Tag's Digest
         id: fetch-current
@@ -121,7 +121,7 @@ jobs:
       actions: write
     steps:
       - name: Setup
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Update Repo Variable
         run: |
           gh api \
