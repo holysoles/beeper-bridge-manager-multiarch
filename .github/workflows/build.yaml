@@ -93,6 +93,8 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
+          labels: |
+            com.beeper.bridge-manager.image.digest=${{ needs.check-digest.outputs.new_digest }}
           tags: |
             type=raw,value=latest
             type=sha,format=long,prefix=
