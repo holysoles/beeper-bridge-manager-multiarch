@@ -1,3 +1,6 @@
+## Update 3/1/2025
+I no longer plan to maintain this repo now that [the official repo is building arm64 images](https://github.com/beeper/bridge-manager/pull/55). I will be archiving this repo and disabling workflows sometime after April 1st.
+
 # beeper-bridge-manager-multiarch
 
 CI/CD repo for building a multi-arch Container image for Beeper's [Bridge Manager](https://github.com/beeper/bridge-manager). This is to work around a lack of arm support on the primary repo (see [this issue](https://github.com/beeper/bridge-manager/issues/25))
